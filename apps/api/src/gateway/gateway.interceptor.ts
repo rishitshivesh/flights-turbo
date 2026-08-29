@@ -21,6 +21,12 @@ export class GatewayMetricsInterceptor implements NestInterceptor {
       route?: { path?: string };
       baseUrl?: string;
     }>();
+
+    const rawPath = (request.originalUrl ?? request.url ?? '').split('?')[0];
+    if (rawPath === '/api/gateway/metrics' || rawPath.startsWith('/docs')) {
+      return next.handle();
+    }
+
     const response = context.switchToHttp().getResponse<{ statusCode: number }>();
     const startedAt = performance.now();
 
@@ -28,7 +34,7 @@ export class GatewayMetricsInterceptor implements NestInterceptor {
       const durationMs = Number((performance.now() - startedAt).toFixed(2));
       const routePath = request.route?.path
         ? `${request.baseUrl ?? ''}${request.route.path}`
-        : (request.originalUrl ?? request.url ?? 'unknown').split('?')[0];
+        : rawPath || 'unknown';
 
       this.gatewayService.record({
         timestamp: new Date().toISOString(),
