@@ -2,6 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 import type { Airport, PaginatedResponse } from '../database/models.js';
+import { AirportPageDto } from '../docs/api-models.js';
 import { AirportsService } from './airports.service.js';
 
 @ApiTags('Airports')
@@ -14,7 +15,7 @@ export class AirportsController {
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'size', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiOkResponse({ description: 'Paginated airport list' })
+  @ApiOkResponse({ description: 'Paginated airport list', type: AirportPageDto })
   list(
     @Query('page') page?: string,
     @Query('size') size?: string,
