@@ -1,0 +1,23 @@
+{
+  "name": "flights-turbo",
+  "private": true,
+  "packageManager": "yarn@4.18.0",
+  "engines": {
+    "node": ">=24.20.0"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:api": "turbo dev --filter=@flights/api",
+    "dev:web": "turbo dev --filter=@flights/web",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "turbo": "2.10.12",
+    "typescript": "6.0.3"
+  }
+}
