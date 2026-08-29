@@ -1,0 +1,64 @@
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+import { Command, FileSearch, Gauge, Home, Map, Search, X } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+
+type DockItem = { label: string; href: string; icon: typeof Home; ready?: boolean };
+
+export function QuickDock({ navigation }: { navigation: DockItem[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const filtered = navigation.filter((item) => item.label.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
+
+  return (
+    <>
+      <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
+        <div className="flex items-end gap-1 rounded-2xl border border-border/70 bg-background/85 p-1.5 shadow-2xl backdrop-blur-xl">
+          <DockLink href="/" label="Home"><Home className="size-4" /></DockLink>
+          <DockLink href="/routes" label="Routes"><Map className="size-4" /></DockLink>
+          <button onClick={() => setOpen(true)} className="group grid size-10 place-items-center rounded-xl bg-foreground text-background transition-transform hover:-translate-y-1" title="Command menu">
+            <Command className="size-4" />
+          </button>
+          <DockLink href="/monitor" label="Monitor"><Gauge className="size-4" /></DockLink>
+          <DockLink href="/todo/lab/query-bench" label="SQL Lab"><FileSearch className="size-4" /></DockLink>
+        </div>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-[90] grid place-items-start bg-black/35 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpen(false)}>
+          <div className="mx-auto w-full max-w-xl overflow-hidden rounded-2xl border bg-background shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex items-center gap-3 border-b px-4 py-3">
+              <Search className="size-4 text-muted-foreground" />
+              <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Jump to a workspace…" className="h-9 flex-1 bg-transparent text-sm outline-none" />
+              <button onClick={() => setOpen(false)} className="rounded-md p-1.5 hover:bg-muted"><X className="size-4" /></button>
+            </div>
+            <div className="max-h-[420px] overflow-y-auto p-2">
+              {filtered.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm hover:bg-muted">
+                    <div className="grid size-8 place-items-center rounded-lg border bg-card"><Icon className="size-4" /></div>
+                    <span>{item.label}</span>
+                    {!item.ready && <span className="ml-auto text-[10px] font-medium text-muted-foreground">TODO</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function DockLink({ href, label, children }: { href: string; label: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className={cn('group grid size-10 place-items-center rounded-xl border bg-card text-muted-foreground transition-all hover:-translate-y-1 hover:text-foreground')} title={label}>
+      {children}
+    </Link>
+  );
+}
