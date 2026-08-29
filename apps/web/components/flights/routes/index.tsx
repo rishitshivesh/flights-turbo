@@ -8,11 +8,15 @@ export default function RoutesDemo({
   routes?: PaginatedResponse<Route>;
 }) {
   if (!routes || routes.data.length === 0) {
-    return <div>No routes available</div>;
+    return (
+      <div className="grid h-[calc(100dvh-56px)] place-items-center text-sm text-muted-foreground">
+        No routes available
+      </div>
+    );
   }
 
   return (
-    <div className="h-screen w-screen">
+    <div className="h-[calc(100dvh-56px)] w-full overflow-hidden">
       <Map className="h-full w-full" center={[121.5, 25]} zoom={3}>
         {routes.data.map((route, index) => (
           <FlightRoute
