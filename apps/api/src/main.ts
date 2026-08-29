@@ -10,7 +10,7 @@ import { AppModule } from './app.module.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const origins = (process.env.WEB_ORIGIN ?? 'http://localhost:3001')
+  const origins = (process.env.WEB_ORIGIN ?? 'http://localhost:3000')
     .split(',')
     .map((origin) => origin.trim());
 
