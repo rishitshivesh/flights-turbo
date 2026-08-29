@@ -1,4 +1,9 @@
-import type { GatewayMetrics, PaginatedResponse, Route } from './api-types';
+import type {
+  Airport,
+  GatewayMetrics,
+  PaginatedResponse,
+  Route,
+} from './api-types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001';
 
@@ -12,6 +17,19 @@ async function apiFetch<T>(path: string): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+export function getAirports(params: {
+  page?: number;
+  size?: number;
+  search?: string;
+} = {}): Promise<PaginatedResponse<Airport>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set('page', String(params.page));
+  if (params.size) searchParams.set('size', String(params.size));
+  if (params.search) searchParams.set('search', params.search);
+
+  return apiFetch(`/api/airports${searchParams.size ? `?${searchParams.toString()}` : ''}`);
 }
 
 export function getRoutes(params: {
