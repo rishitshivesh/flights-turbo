@@ -1,66 +1,53 @@
 'use client';
 
-import { gql } from '@apollo/client';
-import { useQuery } from '@apollo/client/react';
-import { useState } from 'react';
-import type { TypedDocumentNode } from '@graphql-typed-document-node/core';
+import { useEffect, useState } from 'react';
 
-type AirportsVariables = {
-  page?: number;
-  size?: number;
-  search?: string;
-};
+import type { PaginatedResponse, Airport } from '@/lib/api-types';
 
-type AirportsResult = {
-  airports: {
-    data: {
-      airportCode: string;
-      airportName: string;
-      city: string;
-      timezone: string;
-    }[];
-    page: number;
-    size: number;
-    hasMore: boolean;
-  };
-};
-
-const AIRPORTS_QUERY: TypedDocumentNode<
-    AirportsResult,
-    AirportsVariables
-> = gql`
-  query Airports($page: Int, $size: Int, $search: String) {
-    airports(page: $page, size: $size, search: $search) {
-      data {
-        airportCode
-        airportName
-        city
-        timezone
-      }
-      page
-      size
-      hasMore
-    }
-  }
-`;
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001';
 
 export function Airports() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [result, setResult] = useState<PaginatedResponse<Airport> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data, loading, error } = useQuery(
-    AIRPORTS_QUERY,
-    {
-      variables: {
-        page,
-        size: 20,
-        search: search || undefined,
-      },
-    },
-  );
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        setLoading(true);
+        const params = new URLSearchParams({
+          page: String(page),
+          size: '20',
+        });
+        if (search.trim()) params.set('search', search.trim());
+
+        const response = await fetch(`${API_URL}/api/airports?${params.toString()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+
+        setResult((await response.json()) as PaginatedResponse<Airport>);
+        setError(null);
+      } catch (caught) {
+        if (caught instanceof DOMException && caught.name === 'AbortError') return;
+        setError(caught instanceof Error ? caught.message : 'Failed to load airports');
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [page, search]);
 
   if (error) {
-    return <p>GraphQL error: {error.message}</p>;
+    return <p>API error: {error}</p>;
   }
 
   return (
@@ -74,7 +61,7 @@ export function Airports() {
             setPage(1);
           }}
         />
-        <span>{loading ? 'Loading…' : `Page ${data?.airports.page ?? page}`}</span>
+        <span>{loading ? 'Loading…' : `Page ${result?.page ?? page}`}</span>
       </div>
 
       <table>
@@ -83,15 +70,17 @@ export function Airports() {
             <th>Code</th>
             <th>Airport</th>
             <th>City</th>
+            <th>Country</th>
             <th>Timezone</th>
           </tr>
         </thead>
         <tbody>
-          {data?.airports.data.map((airport) => (
+          {result?.data.map((airport) => (
             <tr key={airport.airportCode}>
               <td>{airport.airportCode}</td>
               <td>{airport.airportName}</td>
               <td>{airport.city}</td>
+              <td>{airport.country}</td>
               <td>{airport.timezone}</td>
             </tr>
           ))}
@@ -106,7 +95,7 @@ export function Airports() {
           Previous
         </button>
         <button
-          disabled={!data?.airports.hasMore || loading}
+          disabled={!result?.hasMore || loading}
           onClick={() => setPage((value) => value + 1)}
         >
           Next

@@ -1,61 +1,70 @@
-import {Injectable} from '@nestjs/common';
-import {DatabaseService} from '../database/database.service.js';
+import { Injectable } from '@nestjs/common';
+
+import { DatabaseService } from '../database/database.service.js';
+import type { Airport, PaginatedResponse } from '../database/models.js';
 
 type ListAirportsArgs = {
-    page?: number;
-    size?: number;
-    search?: string;
+  page?: number;
+  size?: number;
+  search?: string;
 };
 
 @Injectable()
 export class AirportsService {
-    constructor(private readonly db: DatabaseService) {
+  constructor(private readonly db: DatabaseService) {}
+
+  async list(args: ListAirportsArgs): Promise<PaginatedResponse<Airport>> {
+    const page = Math.max(args.page ?? 1, 1);
+    const size = Math.min(Math.max(args.size ?? 20, 1), 100);
+    const offset = (page - 1) * size;
+
+    const values: unknown[] = [];
+    const conditions: string[] = [];
+    const search = args.search?.trim();
+
+    if (search) {
+      values.push(`%${search}%`);
+      const param = `$${values.length}`;
+      conditions.push(`(
+        airport_code ILIKE ${param}
+        OR airport_name ->> 'en' ILIKE ${param}
+        OR city ->> 'en' ILIKE ${param}
+        OR country ->> 'en' ILIKE ${param}
+      )`);
     }
 
-    async list(args: ListAirportsArgs) {
-        const page = Math.max(args.page ?? 1, 1);
-        const size = Math.min(Math.max(args.size ?? 20, 1), 100);
-        const offset = (page - 1) * size;
+    values.push(size + 1);
+    const limitParam = `$${values.length}`;
+    values.push(offset);
+    const offsetParam = `$${values.length}`;
 
-        const values: unknown[] = [];
-        let where = '';
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        const search = args.search?.trim();
+    const sql = `
+      SELECT
+        airport_code AS "airportCode",
+        airport_name ->> 'en' AS "airportName",
+        city ->> 'en' AS "city",
+        country ->> 'en' AS "country",
+        json_build_object(
+          'longitude', coordinates[0],
+          'latitude', coordinates[1]
+        ) AS "coordinates",
+        timezone AS "timezone"
+      FROM bookings.airports_data
+      ${where}
+      ORDER BY airport_code
+      LIMIT ${limitParam}
+      OFFSET ${offsetParam};
+    `;
 
-        if (search) {
-            values.push(`%${search}%`);
-            where = `
-        WHERE airport_code ILIKE $1
-           OR airport_name ILIKE $1
-           OR city ILIKE $1
-      `;
-        }
+    const rows = await this.db.query<Airport>(sql, values);
 
-        values.push(size + 1);
-        const limitParam = `$${values.length}`;
-
-        values.push(offset);
-        const offsetParam = `$${values.length}`;
-
-        const sql = `
-            SELECT airport_code AS "airportCode",
-                   airport_name AS "airportName",
-                   city         AS "city",
-                   coordinates::text AS "coordinates", timezone AS "timezone"
-                country AS "country"
-            FROM bookings.airports ${where}
-            ORDER BY airport_code
-                LIMIT ${limitParam}
-            OFFSET ${offsetParam};
-        `;
-
-        const rows = await this.db.query(sql, values);
-
-        return {
-            data: rows.slice(0, size),
-            page,
-            size,
-            hasMore: rows.length > size,
-        };
-    }
+    return {
+      data: rows.slice(0, size),
+      page,
+      size,
+      hasMore: rows.length > size,
+    };
+  }
 }

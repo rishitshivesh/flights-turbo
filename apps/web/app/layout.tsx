@@ -1,23 +1,21 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { ApolloProvider } from '../lib/apollo-provider';
-import './globals.css';
-import { Inter } from "next/font/google";
-import { cn } from "@/lib/utils";
+import { Inter } from 'next/font/google';
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+import { cn } from '@/lib/utils';
+import './globals.css';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
-  title: 'Flights API Playground',
-  description: 'Postgres query playground backed by NestJS GraphQL',
+  title: 'Flights SQL Lab',
+  description: 'PostgreSQL query and API performance playground backed by NestJS REST.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={cn("font-sans", inter.variable)}>
-      <body>
-        <ApolloProvider>{children}</ApolloProvider>
-      </body>
+    <html lang="en" className={cn('font-sans', inter.variable)}>
+      <body>{children}</body>
     </html>
   );
 }
