@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 import { ManagedFilters } from './managed-filters';
@@ -17,6 +17,7 @@ import type {
 
 export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilters>({
   queryFunction,
+  queryKey,
   columns,
   filters = [],
   initialFilters,
@@ -32,6 +33,7 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
   onRowClick,
 }: {
   queryFunction: ManagedQueryFunction<TRow, TFilters>;
+  queryKey?: string | number;
   columns: ManagedColumnConfig<TRow>[];
   filters?: FilterFieldConfig[];
   initialFilters?: TFilters;
@@ -55,25 +57,10 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
   const [error, setError] = useState<Error | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const requestSequence = useRef(0);
+  const queryFunctionRef = useRef(queryFunction);
+  queryFunctionRef.current = queryFunction;
 
   const visibleColumns = useMemo(() => columns.filter((column) => !column.hidden), [columns]);
-
-  const execute = useCallback(async () => {
-    const sequence = ++requestSequence.current;
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    try {
-      const next = await queryFunction({ page, size, filters: filterValues, sort, signal: controller.signal });
-      if (sequence === requestSequence.current) setResult(next);
-    } catch (caught) {
-      if (controller.signal.aborted) return;
-      if (sequence === requestSequence.current) setError(caught instanceof Error ? caught : new Error('Query failed'));
-    } finally {
-      if (sequence === requestSequence.current) setLoading(false);
-    }
-    return () => controller.abort();
-  }, [filterValues, page, queryFunction, size, sort, refreshToken]);
 
   useEffect(() => {
     let disposed = false;
@@ -82,12 +69,14 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
     setLoading(true);
     setError(null);
 
-    void queryFunction({ page, size, filters: filterValues, sort, signal: controller.signal })
+    void queryFunctionRef.current({ page, size, filters: filterValues, sort, signal: controller.signal })
       .then((next) => {
         if (!disposed && sequence === requestSequence.current) setResult(next);
       })
       .catch((caught) => {
-        if (!disposed && !controller.signal.aborted && sequence === requestSequence.current) setError(caught instanceof Error ? caught : new Error('Query failed'));
+        if (!disposed && !controller.signal.aborted && sequence === requestSequence.current) {
+          setError(caught instanceof Error ? caught : new Error('Query failed'));
+        }
       })
       .finally(() => {
         if (!disposed && sequence === requestSequence.current) setLoading(false);
@@ -97,7 +86,7 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
       disposed = true;
       controller.abort();
     };
-  }, [filterValues, page, queryFunction, refreshToken, size, sort]);
+  }, [filterValues, page, queryKey, refreshToken, size, sort]);
 
   const updateFilters = (next: QueryFilters) => {
     setFilterValues(next as TFilters);
@@ -124,8 +113,21 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {toolbar}
-            {filters.length > 0 && <ManagedFilters fields={filters} value={filterValues} onChange={updateFilters} customComponents={customFilterComponents} />}
-            <button type="button" onClick={() => setRefreshToken((value) => value + 1)} disabled={loading} className="grid size-10 place-items-center rounded-xl border bg-background hover:bg-muted disabled:opacity-50" title="Refresh">
+            {filters.length > 0 && (
+              <ManagedFilters
+                fields={filters}
+                value={filterValues}
+                onChange={updateFilters}
+                customComponents={customFilterComponents}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setRefreshToken((value) => value + 1)}
+              disabled={loading}
+              className="grid size-10 place-items-center rounded-xl border bg-background hover:bg-muted disabled:opacity-50"
+              title="Refresh"
+            >
               <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
             </button>
           </div>
@@ -138,10 +140,25 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
             <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
               <tr>
                 {visibleColumns.map((column) => (
-                  <th key={column.key} className={cn('px-4 py-3 font-medium', alignClass(column.align))} style={{ width: column.width }}>
-                    <button type="button" disabled={!column.sortable} onClick={() => toggleSort(column)} className={cn('inline-flex items-center gap-1.5', column.sortable && 'hover:text-foreground')}>
+                  <th
+                    key={column.key}
+                    className={cn('px-4 py-3 font-medium', alignClass(column.align))}
+                    style={{ width: column.width }}
+                  >
+                    <button
+                      type="button"
+                      disabled={!column.sortable}
+                      onClick={() => toggleSort(column)}
+                      className={cn('inline-flex items-center gap-1.5', column.sortable && 'hover:text-foreground')}
+                    >
                       {column.label}
-                      {column.sortable && (sort?.key === column.key ? <ChevronDown className={cn('size-3.5 transition-transform', sort.direction === 'asc' && 'rotate-180')} /> : <ChevronsUpDown className="size-3.5 opacity-50" />)}
+                      {column.sortable && (
+                        sort?.key === column.key ? (
+                          <ChevronDown className={cn('size-3.5 transition-transform', sort.direction === 'asc' && 'rotate-180')} />
+                        ) : (
+                          <ChevronsUpDown className="size-3.5 opacity-50" />
+                        )
+                      )}
                     </button>
                   </th>
                 ))}
@@ -149,7 +166,11 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
             </thead>
             <tbody className="divide-y divide-border/60">
               {!loading && !error && result.data.map((row, index) => (
-                <tr key={rowKey(row, index)} onClick={() => onRowClick?.(row)} className={cn('transition-colors hover:bg-muted/25', onRowClick && 'cursor-pointer')}>
+                <tr
+                  key={rowKey(row, index)}
+                  onClick={() => onRowClick?.(row)}
+                  className={cn('transition-colors hover:bg-muted/25', onRowClick && 'cursor-pointer')}
+                >
                   {visibleColumns.map((column) => (
                     <td key={column.key} className={cn('px-4 py-3', alignClass(column.align))}>
                       {renderCell(row, column, customCellRenderers)}
@@ -164,7 +185,11 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
         {loading && <TableState>Loading query…</TableState>}
         {!loading && error && (
           <TableState>
-            <div className="flex flex-col items-center gap-2 text-center"><AlertCircle className="size-5 text-destructive" /><span className="font-medium">Query failed</span><span className="max-w-lg text-xs text-muted-foreground">{error.message}</span></div>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <AlertCircle className="size-5 text-destructive" />
+              <span className="font-medium">Query failed</span>
+              <span className="max-w-lg text-xs text-muted-foreground">{error.message}</span>
+            </div>
           </TableState>
         )}
         {!loading && !error && result.data.length === 0 && <TableState>{empty}</TableState>}
@@ -177,13 +202,24 @@ export function ManagedDataTable<TRow, TFilters extends QueryFilters = QueryFilt
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               Rows
-              <select value={size} onChange={(event) => { setSize(Number(event.target.value)); setPage(1); }} className="h-8 rounded-lg border bg-background px-2 text-xs text-foreground">
+              <select
+                value={size}
+                onChange={(event) => {
+                  setSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                className="h-8 rounded-lg border bg-background px-2 text-xs text-foreground"
+              >
                 {pageSizes.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
             <span className="min-w-16 text-center text-xs text-muted-foreground">Page {result.page || page}</span>
-            <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} className="grid size-8 place-items-center rounded-lg border bg-background disabled:opacity-40"><ChevronLeft className="size-4" /></button>
-            <button type="button" disabled={!result.hasMore || loading} onClick={() => setPage((value) => value + 1)} className="grid size-8 place-items-center rounded-lg border bg-background disabled:opacity-40"><ChevronRight className="size-4" /></button>
+            <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} className="grid size-8 place-items-center rounded-lg border bg-background disabled:opacity-40">
+              <ChevronLeft className="size-4" />
+            </button>
+            <button type="button" disabled={!result.hasMore || loading} onClick={() => setPage((value) => value + 1)} className="grid size-8 place-items-center rounded-lg border bg-background disabled:opacity-40">
+              <ChevronRight className="size-4" />
+            </button>
           </div>
         </footer>
       </div>
@@ -202,18 +238,36 @@ function renderCell<TRow>(row: TRow, column: ManagedColumnConfig<TRow>, registry
   const value = getPath(row, column.path ?? column.key);
   const custom = column.customRenderer ? registry?.[column.customRenderer] : undefined;
   if (custom) return custom({ row, value, column });
-  if (value === undefined || value === null || value === '') return column.emptyValue ?? <span className="text-muted-foreground">—</span>;
+  if (value === undefined || value === null || value === '') {
+    return column.emptyValue ?? <span className="text-muted-foreground">—</span>;
+  }
 
   const locale = column.formatOptions?.locale;
   switch (column.format) {
-    case 'number': return Number(value).toLocaleString(locale);
-    case 'currency': return new Intl.NumberFormat(locale, { style: 'currency', currency: column.formatOptions?.currency ?? 'USD' }).format(Number(value));
-    case 'date': return new Intl.DateTimeFormat(locale, { dateStyle: column.formatOptions?.dateStyle ?? 'medium' }).format(new Date(String(value)));
-    case 'datetime': return new Intl.DateTimeFormat(locale, { dateStyle: column.formatOptions?.dateStyle ?? 'medium', timeStyle: column.formatOptions?.timeStyle ?? 'short' }).format(new Date(String(value)));
-    case 'boolean': return <span className={cn('rounded-full px-2 py-1 text-xs', value ? 'bg-emerald-500/10 text-emerald-700' : 'bg-muted text-muted-foreground')}>{value ? 'Yes' : 'No'}</span>;
-    case 'badge': return <span className="rounded-full border bg-background px-2 py-1 text-xs">{String(value)}</span>;
-    case 'json': return <code className="max-w-80 break-all text-xs text-muted-foreground">{JSON.stringify(value)}</code>;
-    default: return String(value);
+    case 'number':
+      return Number(value).toLocaleString(locale);
+    case 'currency':
+      return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: column.formatOptions?.currency ?? 'USD',
+      }).format(Number(value));
+    case 'date':
+      return new Intl.DateTimeFormat(locale, {
+        dateStyle: column.formatOptions?.dateStyle ?? 'medium',
+      }).format(new Date(String(value)));
+    case 'datetime':
+      return new Intl.DateTimeFormat(locale, {
+        dateStyle: column.formatOptions?.dateStyle ?? 'medium',
+        timeStyle: column.formatOptions?.timeStyle ?? 'short',
+      }).format(new Date(String(value)));
+    case 'boolean':
+      return <span className={cn('rounded-full px-2 py-1 text-xs', value ? 'bg-emerald-500/10 text-emerald-700' : 'bg-muted text-muted-foreground')}>{value ? 'Yes' : 'No'}</span>;
+    case 'badge':
+      return <span className="rounded-full border bg-background px-2 py-1 text-xs">{String(value)}</span>;
+    case 'json':
+      return <code className="max-w-80 break-all text-xs text-muted-foreground">{JSON.stringify(value)}</code>;
+    default:
+      return String(value);
   }
 }
 
