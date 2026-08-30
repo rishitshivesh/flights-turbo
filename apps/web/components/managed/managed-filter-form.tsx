@@ -23,21 +23,28 @@ export function ManagedFilterForm({
   customComponents?: CustomFilterRegistry;
   submitLabel?: string;
 }) {
+  const defaults = buildFilterDefaults(fields);
+  const defaultsSignature = JSON.stringify(defaults);
+  const valueSignature = JSON.stringify(value ?? {});
+
   const form = useForm<FieldValues>({
-    defaultValues: { ...buildFilterDefaults(fields), ...(value ?? {}) },
+    defaultValues: { ...defaults, ...(value ?? {}) },
     mode: 'onSubmit',
   });
 
   useEffect(() => {
     form.reset({ ...buildFilterDefaults(fields), ...(value ?? {}) });
-  }, [fields, form, value]);
+    // Signatures intentionally prevent equivalent inline config/value objects
+    // from resetting an in-progress form on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultsSignature, valueSignature, form]);
 
   const watched = useWatch({ control: form.control });
 
   const reset = () => {
-    const defaults = buildFilterDefaults(fields);
-    form.reset(defaults);
-    onApply(serializeFilters(fields, defaults));
+    const nextDefaults = buildFilterDefaults(fields);
+    form.reset(nextDefaults);
+    onApply(serializeFilters(fields, nextDefaults));
   };
 
   return (
@@ -124,7 +131,7 @@ function FieldRenderer({ config, field, form, customComponents }: any) {
             <button
               type="button"
               key={String(option.value)}
-              onClick={() => field.onChange(active ? selected.filter((value: unknown) => value !== option.value) : [...selected, option.value])}
+              onClick={() => field.onChange(active ? selected.filter((item: unknown) => item !== option.value) : [...selected, option.value])}
               className={cn('flex min-h-10 items-center gap-2 rounded-xl border px-3 text-left text-sm', active && 'border-foreground bg-foreground text-background')}
             >
               <span className={cn('grid size-4 place-items-center rounded border', active && 'border-background')}>
@@ -148,11 +155,11 @@ function FieldRenderer({ config, field, form, customComponents }: any) {
   }
 
   if (config.type === 'date-range') {
-    const value = field.value ?? { from: '', to: '' };
+    const range = field.value ?? { from: '', to: '' };
     return (
       <div className="grid gap-2 sm:grid-cols-2">
-        <input type="date" value={value.from ?? ''} onChange={(event) => field.onChange({ ...value, from: event.target.value })} className="h-10 rounded-xl border bg-background px-3 text-sm" />
-        <input type="date" value={value.to ?? ''} onChange={(event) => field.onChange({ ...value, to: event.target.value })} className="h-10 rounded-xl border bg-background px-3 text-sm" />
+        <input type="date" value={range.from ?? ''} onChange={(event) => field.onChange({ ...range, from: event.target.value })} className="h-10 rounded-xl border bg-background px-3 text-sm" />
+        <input type="date" value={range.to ?? ''} onChange={(event) => field.onChange({ ...range, to: event.target.value })} className="h-10 rounded-xl border bg-background px-3 text-sm" />
       </div>
     );
   }
