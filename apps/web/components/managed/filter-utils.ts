@@ -1,11 +1,21 @@
 import type { FieldValues } from 'react-hook-form';
-import type { FilterFieldConfig, QueryFilters, QueryPrimitive, QueryValue } from './types';
+import type {
+  FilterDependency,
+  FilterFieldConfig,
+  QueryFilters,
+  QueryPrimitive,
+  QueryValue,
+} from './types';
+
+export function isMultiSelectField(field: FilterFieldConfig) {
+  return field.type === 'multi-select' || field.type === 'async-multi-select';
+}
 
 export function buildFilterDefaults(fields: FilterFieldConfig[]): FieldValues {
   return Object.fromEntries(
     fields.map((field) => {
       if (field.defaultValue !== undefined) return [field.queryKey, field.defaultValue];
-      if (field.type === 'multi-select') return [field.queryKey, []];
+      if (isMultiSelectField(field)) return [field.queryKey, []];
       if (field.type === 'boolean') return [field.queryKey, false];
       if (field.type === 'date-range') return [field.queryKey, { from: '', to: '' }];
       return [field.queryKey, ''];
@@ -13,8 +23,58 @@ export function buildFilterDefaults(fields: FilterFieldConfig[]): FieldValues {
   );
 }
 
+export function getVisibilityDependencies(field: FilterFieldConfig): FilterDependency[] {
+  if (!field.dependsOn) return [];
+  return Array.isArray(field.dependsOn) ? [...field.dependsOn] : [field.dependsOn];
+}
+
+export function getFilterDependencies(field: FilterFieldConfig): FilterDependency[] {
+  const dependencies = getVisibilityDependencies(field);
+  const existing = new Set(dependencies.map((dependency) => dependency.queryKey));
+  for (const queryKey of field.optionDependencies ?? []) {
+    if (!existing.has(queryKey)) dependencies.push({ queryKey });
+  }
+  return dependencies;
+}
+
+export function dependencySatisfied(dependency: FilterDependency, values: FieldValues) {
+  const current = values?.[dependency.queryKey];
+  if (dependency.oneOf) return dependency.oneOf.includes(current as QueryPrimitive);
+  if ('equals' in dependency) return current === dependency.equals;
+  return !empty(current);
+}
+
+export function visibilityDependenciesSatisfied(field: FilterFieldConfig, values: FieldValues) {
+  return getVisibilityDependencies(field).every((dependency) => dependencySatisfied(dependency, values));
+}
+
+export function dependenciesSatisfied(field: FilterFieldConfig, values: FieldValues) {
+  return getFilterDependencies(field).every((dependency) => dependencySatisfied(dependency, values));
+}
+
+export function getDependencyValues(field: FilterFieldConfig, values: FieldValues): QueryFilters {
+  const result: QueryFilters = {};
+  for (const dependency of getFilterDependencies(field)) {
+    result[dependency.queryKey] = values?.[dependency.queryKey] as QueryValue;
+  }
+  return result;
+}
+
+export function dependencySignature(field: FilterFieldConfig, values: FieldValues) {
+  return JSON.stringify(getDependencyValues(field, values));
+}
+
 function empty(value: unknown) {
-  return value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0);
+  return (
+    value === undefined ||
+    value === null ||
+    value === '' ||
+    (Array.isArray(value) && value.length === 0) ||
+    (typeof value === 'object' &&
+      !Array.isArray(value) &&
+      value !== null &&
+      Object.values(value).every((entry) => empty(entry)))
+  );
 }
 
 function serializeValue(field: FilterFieldConfig, value: unknown): QueryValue {
@@ -38,6 +98,7 @@ function serializeValue(field: FilterFieldConfig, value: unknown): QueryValue {
 export function serializeFilters(fields: FilterFieldConfig[], values: FieldValues): QueryFilters {
   const result: QueryFilters = {};
   for (const field of fields) {
+    if (!visibilityDependenciesSatisfied(field, values)) continue;
     const value = serializeValue(field, values[field.queryKey]);
     if (!empty(value)) result[field.queryKey] = value;
   }
@@ -51,11 +112,16 @@ export function countActiveFilters(filters: QueryFilters) {
 export function filtersToSearchParams(filters: QueryFilters) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
-    if (value === undefined || value === null || value === '') continue;
+    if (empty(value)) continue;
     if (Array.isArray(value)) {
-      const values = value.filter((item) => item !== undefined && item !== null && item !== '');
-      if (values.length === 0) continue;
-      params.set(key, values.join(','));
+      const values = value.filter((item) => !empty(item));
+      if (values.length > 0) params.set(key, values.join(','));
+      continue;
+    }
+    if (typeof value === 'object' && value !== null) {
+      for (const [nestedKey, nestedValue] of Object.entries(value)) {
+        if (!empty(nestedValue)) params.set(`${key}.${nestedKey}`, String(nestedValue));
+      }
       continue;
     }
     params.set(key, String(value));
