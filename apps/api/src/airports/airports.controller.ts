@@ -52,11 +52,13 @@ export class AirportsController {
     @Query("page") page?: string,
     @Query("size") size?: string,
     @Query("search") search?: string,
+    @Query("country") country?: string,
   ): Promise<PaginatedResponse<Option>> {
     return this.airportsService.listStatic(key as any, {
       page: page ? Number(page) : undefined,
       size: size ? Number(size) : undefined,
       search,
+      country,
     });
   }
 }

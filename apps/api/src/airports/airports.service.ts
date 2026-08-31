@@ -7,6 +7,7 @@ type ListAirportsArgs = {
   page?: number;
   size?: number;
   search?: string;
+  country?: string;
 };
 
 export const StaticKeys = ["timezone", "country", "city", "code"];
@@ -77,7 +78,9 @@ export class AirportsService {
   ): Promise<PaginatedResponse<Option>> {
     // Implementation for listing static options
 
-    if (!["timezone", "country", "city", "code"].includes(key)) {
+    const allowedKeys = ["timezone", "country", "city", "code"] as const;
+
+    if (!allowedKeys.includes(key as (typeof allowedKeys)[number])) {
       throw new BadRequestException(`Invalid key: ${key}`);
     }
 
@@ -85,36 +88,46 @@ export class AirportsService {
     const size = Math.min(Math.max(args.size ?? 20, 1), 100);
     const offset = (page - 1) * size;
 
+    const fetchKey = key === "timezone" ? "timezone" : `${key} ->> 'en'`;
+
     const values: unknown[] = [];
     const conditions: string[] = [];
+
     const search = args.search?.trim();
 
     if (search) {
       values.push(`%${search}%`);
-      const param = `$${values.length}`;
-      conditions.push(`(
-        ${key} ->> 'en' ILIKE ${param}
-      )`);
+      conditions.push(`${fetchKey} ILIKE $${values.length}`);
+    }
+
+    if (key === "city") {
+      if (!args.country) {
+        throw new BadRequestException("Country is Missing");
+      }
+      values.push(args.country);
+      conditions.push(`country ->> 'en' LIKE $${values.length}`);
     }
 
     values.push(size + 1);
     const limitParam = `$${values.length}`;
+
     values.push(offset);
     const offsetParam = `$${values.length}`;
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const sql = `
-      SELECT
-        distinct(${key} ->> 'en') AS "label",
-        ${key} AS "value"
+      SELECT DISTINCT
+        ${fetchKey} AS "value",
+        ${fetchKey} AS "label"
       FROM bookings.airports_data
-      ${where}
-      ORDER BY ${key}
-      LIMIT ${limitParam}
+             ${where}
+      ORDER BY "value"
+        LIMIT ${limitParam}
       OFFSET ${offsetParam};
     `;
 
+    console.log(sql);
     const rows = await this.db.query<Option>(sql, values);
 
     return {

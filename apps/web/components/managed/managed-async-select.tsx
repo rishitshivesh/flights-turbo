@@ -100,8 +100,8 @@ export function ManagedAsyncSelect({
       ? []
       : [value as QueryPrimitive];
 
-  const labels = new Map([...staticOptions, ...options].map((option) => [String(option.value), option.label]));
-  const selectedLabels = selectedValues.map((selected) => labels.get(String(selected)) ?? String(selected));
+  const labels = new Map([...staticOptions, ...options].map((option) => [valueKey(option.value), option.label]));
+  const selectedLabels = selectedValues.map((selected) => labels.get(valueKey(selected)) ?? String(selected));
 
   const toggle = (option: FilterOption) => {
     if (option.disabled) return;
@@ -111,8 +111,8 @@ export function ManagedAsyncSelect({
       return;
     }
     const current = Array.isArray(value) ? value : [];
-    const exists = current.some((entry) => String(entry) === String(option.value));
-    onChange(exists ? current.filter((entry) => String(entry) !== String(option.value)) : [...current, option.value]);
+    const exists = current.some((entry) => valueKey(entry) === valueKey(option.value));
+    onChange(exists ? current.filter((entry) => valueKey(entry) !== valueKey(option.value)) : [...current, option.value]);
   };
 
   const clear = () => onChange(multiple ? [] : '');
@@ -256,9 +256,15 @@ function normalizeOptionsPage(
   };
 }
 
+function valueKey(value: unknown) {
+  if (value === undefined || value === null) return String(value);
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
 function dedupeOptions(options: FilterOption[]) {
   const map = new Map<string, FilterOption>();
-  for (const option of options) map.set(String(option.value), option);
+  for (const option of options) map.set(valueKey(option.value), option);
   return [...map.values()];
 }
 
