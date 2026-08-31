@@ -1,25 +1,11 @@
 "use client";
 
 import { ManagedColumnConfig, ManagedDataTable } from "@/components/managed";
-import { getAirports } from "@/lib/api";
+import { getAirports, getStaticData } from "@/lib/api";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 const staticFields = [
-  {
-    queryKey: "country",
-    label: "Country",
-    type: "select",
-    options: [
-      { label: "United States", value: "US" },
-      { label: "Canada", value: "CA" },
-      { label: "Mexico", value: "MX" },
-    ],
-  },
-  {
-    queryKey: "city",
-    label: "City",
-    type: "text",
-  },
   {
     queryKey: "airportCode",
     label: "Code",
@@ -48,13 +34,32 @@ const columns = [
 export default function AirportsTable() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const { data: countryData } = useQuery({
+    queryKey: ["country"],
+    queryFn: () => getStaticData("country"),
+  });
+
+  const filters = [
+    ...staticFields,
+    {
+      queryKey: "country",
+      label: "Country",
+      type: "select",
+      options: countryData?.data || [],
+    },
+    {
+      queryKey: "city",
+      label: "City",
+      type: "text",
+    },
+  ];
 
   return (
     <div>
       <ManagedDataTable
         queryFunction={getAirports}
         columns={columns}
-        filters={staticFields as any}
+        filters={filters as any}
         rowKey={(row: any) => String(row.flightId)}
         onInitialFilterOpen={() => setFiltersOpen(true)}
       />
