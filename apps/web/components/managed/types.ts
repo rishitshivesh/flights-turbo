@@ -2,24 +2,57 @@ import type { ReactNode } from 'react';
 import type { ControllerRenderProps, FieldValues, UseFormReturn } from 'react-hook-form';
 
 export type QueryPrimitive = string | number | boolean | null | undefined;
-export type QueryValue = QueryPrimitive | QueryPrimitive[];
+export type QueryDateRange = { from?: string; to?: string };
+export type QueryValue = QueryPrimitive | QueryPrimitive[] | QueryDateRange;
 export type QueryFilters = Record<string, QueryValue>;
 
 export type FilterOption = {
   label: string;
   value: string | number;
   description?: string;
+  disabled?: boolean;
 };
+
+export type FilterOptionsPage = {
+  data: FilterOption[];
+  page?: number;
+  size?: number;
+  hasMore?: boolean;
+  total?: number;
+  nextCursor?: string | number | null;
+};
+
+export type FilterOptionsFetcherArgs = {
+  search: string;
+  page: number;
+  size: number;
+  cursor?: string | number | null;
+  dependencies: QueryFilters;
+  signal?: AbortSignal;
+};
+
+export type FilterOptionsFetcher = (
+  args: FilterOptionsFetcherArgs,
+) => Promise<FilterOption[] | FilterOptionsPage>;
 
 export type FilterFieldType =
   | 'string'
+  | 'text'
   | 'number'
   | 'select'
   | 'multi-select'
+  | 'async-select'
+  | 'async-multi-select'
   | 'boolean'
   | 'date'
   | 'date-range'
   | 'custom';
+
+export type FilterDependency = {
+  queryKey: string;
+  equals?: QueryPrimitive;
+  oneOf?: QueryPrimitive[];
+};
 
 export type FilterFieldConfig = {
   type: FilterFieldType;
@@ -28,8 +61,21 @@ export type FilterFieldConfig = {
   description?: string;
   placeholder?: string;
   required?: boolean;
-  defaultValue?: QueryValue | { from?: string; to?: string };
+  defaultValue?: QueryValue;
   options?: FilterOption[];
+  /** Primary async option loader. */
+  fetcher?: FilterOptionsFetcher;
+  /** Compatibility alias for fetcher. */
+  optionsFetcher?: FilterOptionsFetcher;
+  optionsQueryKey?: string | readonly unknown[];
+  optionDependencies?: string[];
+  optionPageSize?: number;
+  optionsStaleTimeMs?: number;
+  searchDebounceMs?: number;
+  minSearchLength?: number;
+  searchable?: boolean;
+  clearOnDependencyChange?: boolean;
+  emptyOptionsMessage?: string;
   customComponent?: string;
   hidden?: boolean;
   width?: 'full' | 'half';
@@ -41,11 +87,11 @@ export type FilterFieldConfig = {
     pattern?: string;
     message?: string;
   };
-  dependsOn?: {
-    queryKey: string;
-    equals?: QueryPrimitive;
-    oneOf?: QueryPrimitive[];
-  };
+  /**
+   * Controls field visibility and is also automatically forwarded to the
+   * async fetcher as dependency data. Multiple dependencies are ANDed.
+   */
+  dependsOn?: FilterDependency | FilterDependency[];
   serializeAs?: 'auto' | 'string' | 'number' | 'boolean' | 'csv' | 'date-range';
 };
 

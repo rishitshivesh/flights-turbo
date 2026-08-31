@@ -1,8 +1,8 @@
-# Managed Query UI
+# Managed query UI
 
-The goal is to make a SQL-backed page mostly configuration.
+The managed layer is meant to make a SQL-backed screen mostly configuration plus a fetcher. It owns filter drawer state, React Hook Form wiring, option loading, dependency resets, pagination, table loading/error states and request cancellation.
 
-## 1. Define filters
+## Basic filters
 
 ```ts
 const filters = [
@@ -11,84 +11,171 @@ const filters = [
     label: 'Source Airport',
     queryKey: 'source',
     required: true,
-    placeholder: 'DME',
   },
   {
     type: 'multi-select',
     label: 'Days of week',
     queryKey: 'days',
+    searchable: true,
     options: [
       { label: 'Monday', value: 1 },
       { label: 'Wednesday', value: 3 },
-      { label: 'Friday', value: 5 },
     ],
-  },
-  {
-    type: 'date-range',
-    label: 'Departure window',
-    queryKey: 'departureRange',
   },
 ] satisfies FilterFieldConfig[];
 ```
 
-`ManagedFilters` renders these inside a right-hand sheet using React Hook Form. Applying filters returns a plain query object.
+Built-in field types are `string`, `number`, `select`, `multi-select`, `async-select`, `async-multi-select`, `boolean`, `date`, `date-range` and `custom`.
 
-Built-in types:
+All built-in interactive controls are composed from the repo's shadcn components.
 
-- `string`
-- `number`
-- `select`
-- `multi-select`
-- `boolean`
-- `date`
-- `date-range`
-- `custom`
+## Async select
 
-Validation, dependencies, defaults and serialization can be expressed in config.
-
-## 2. Define columns
+The field owns React Query caching, debounced search, AbortSignal cancellation and infinite scrolling. The fetcher can return either a `FilterOption[]` or a paginated object.
 
 ```ts
-const columns = [
-  { key: 'flightId', label: 'Flight', format: 'number', sortable: true },
-  { key: 'route', label: 'Route', customRenderer: 'route' },
-  { key: 'status', label: 'Status', format: 'badge' },
-  { key: 'scheduledDeparture', label: 'Departure', format: 'datetime' },
-  { key: 'price', label: 'Price', format: 'currency', formatOptions: { currency: 'RUB' } },
-] satisfies ManagedColumnConfig<FlightRow>[];
+const airportFetcher: FilterOptionsFetcher = ({
+  search,
+  page,
+  size,
+  signal,
+}) => getStaticData('code', { search, page, size, signal });
+
+const filters = [
+  {
+    type: 'async-select',
+    queryKey: 'airport',
+    label: 'Airport',
+    fetcher: airportFetcher,
+    optionPageSize: 20,
+    searchDebounceMs: 250,
+  },
+] satisfies FilterFieldConfig[];
 ```
 
-Nested values use `path`, for example `{ key: 'city', path: 'departureAirport.city', label: 'Origin city' }`.
-
-## 3. Supply one query function
+Fetcher input:
 
 ```ts
-const queryFlights: ManagedQueryFunction<FlightRow> = async ({
+{
+  search: string;
+  page: number;
+  size: number;
+  cursor?: string | number | null;
+  dependencies: QueryFilters;
+  signal?: AbortSignal;
+}
+```
+
+Supported fetcher responses:
+
+```ts
+FilterOption[]
+```
+
+or:
+
+```ts
+{
+  data: FilterOption[];
+  page?: number;
+  size?: number;
+  hasMore?: boolean;
+  total?: number;
+  nextCursor?: string | number | null;
+}
+```
+
+`nextCursor` lets the same component work with cursor-backed option APIs later. If `hasMore` is true, scrolling near the bottom fetches the next page automatically.
+
+## Async multi-select
+
+Exactly the same contract, only the RHF value becomes an array.
+
+```ts
+{
+  type: 'async-multi-select',
+  queryKey: 'airports',
+  label: 'Airports',
+  fetcher: airportFetcher,
+}
+```
+
+Search and selection are linked to the same RHF field. Search text is intentionally UI state and is not submitted as a separate filter.
+
+## Dependent fields
+
+Use `dependsOn` for a dependency that also controls whether the child field is available.
+
+```ts
+const filters = [
+  {
+    type: 'async-select',
+    queryKey: 'country',
+    label: 'Country',
+    fetcher: countryFetcher,
+  },
+  {
+    type: 'async-select',
+    queryKey: 'city',
+    label: 'City',
+    dependsOn: { queryKey: 'country' },
+    fetcher: cityFetcher,
+  },
+] satisfies FilterFieldConfig[];
+```
+
+The city fetcher automatically receives:
+
+```ts
+{
+  dependencies: {
+    country: 'Russia'
+  }
+}
+```
+
+Changing `country` clears `city`, changes the React Query option cache key, and refetches page 1 when the city field is opened. The child is disabled/hidden until its dependency is satisfied.
+
+For dependencies that should affect option loading without controlling visibility, use:
+
+```ts
+optionDependencies: ['country']
+```
+
+Multiple dependencies are supported as an array and are ANDed.
+
+Set `clearOnDependencyChange: false` only when retaining the old child value is genuinely valid.
+
+## Managed table
+
+```tsx
+<ManagedDataTable
+  queryFunction={queryFlights}
+  filters={filters}
+  columns={columns}
+  rowKey={(row) => String(row.flightId)}
+/>
+```
+
+The table owns filter-sheet open/close state internally. Do not create `filtersOpen`, `setFiltersOpen`, `onInitialFilterOpen`, or page-level option queries.
+
+The query function receives:
+
+```ts
+{
   page,
   size,
   filters,
   sort,
   signal,
-}) => {
-  const params = filtersToSearchParams({
-    ...filters,
-    page,
-    size,
-    sortBy: sort?.key,
-    sortDir: sort?.direction,
-  });
-
-  const response = await fetch(`/api/flights?${params}`, { signal });
-  if (!response.ok) throw new Error('Could not fetch flights');
-  return response.json();
-};
+}
 ```
 
-Expected response:
+and returns:
 
 ```ts
 {
-  data: FlightRow[];
+  data: T[];
   page: number;
   size: number;
   hasMore: boolean;
@@ -97,71 +184,52 @@ Expected response:
 }
 ```
 
-Then the page is basically:
+`ManagedDataTable` owns loading/error/empty states, sorting, refresh, page size, previous/next pagination, filter state, request cancellation and stale-response protection.
 
-```tsx
-<ManagedDataTable
-  title="Flights"
-  queryFunction={queryFlights}
-  filters={filters}
-  columns={columns}
-  rowKey={(row) => String(row.flightId)}
-  customCellRenderers={{
-    route: ({ row }) => `${row.from} → ${row.to}`,
-  }}
-/>
-```
-
-The component owns:
-
-- loading, error and empty states
-- filter drawer
-- React Hook Form state/validation
-- active-filter count
-- page and page size
-- next/previous pagination
-- sorting state
-- stale-request protection and AbortSignal
-- refresh
-- basic cell formatting
-
-## Custom form components
-
-Keep configuration JSON-friendly by storing a registry key instead of a React component in the field config.
+## Columns
 
 ```ts
-const filters: FilterFieldConfig[] = [
-  {
-    type: 'custom',
-    label: 'Airport',
-    queryKey: 'airport',
-    customComponent: 'airport-picker',
-  },
-];
+const columns = [
+  { key: 'flightId', label: 'Flight', sortable: true, format: 'number' },
+  { key: 'city', label: 'Origin', path: 'departureAirport.city' },
+  { key: 'status', label: 'Status', format: 'badge' },
+  { key: 'scheduledDeparture', label: 'Departure', format: 'datetime' },
+] satisfies ManagedColumnConfig<Flight>[];
+```
 
-const customComponents: CustomFilterRegistry = {
-  'airport-picker': ({ field }) => (
-    <AirportPicker value={field.value} onChange={field.onChange} />
+Custom cells remain registry-based:
+
+```ts
+const cellRenderers = {
+  route: ({ row }) => <RouteChip from={row.from} to={row.to} />,
+};
+```
+
+and:
+
+```ts
+{ key: 'route', label: 'Route', customRenderer: 'route' }
+```
+
+## Custom RHF controls
+
+If a built-in type is not enough:
+
+```ts
+{
+  type: 'custom',
+  queryKey: 'radius',
+  label: 'Radius',
+  customComponent: 'radius-slider',
+}
+```
+
+```tsx
+const customComponents = {
+  'radius-slider': ({ field }) => (
+    <RadiusSlider value={field.value} onValueChange={field.onChange} />
   ),
 };
 ```
 
-This gives custom components full RHF field control without making the JSON config executable.
-
-## Custom table cells
-
-Same pattern:
-
-```ts
-const columns = [
-  { key: 'route', label: 'Route', customRenderer: 'route-preview' },
-];
-
-const customCellRenderers = {
-  'route-preview': ({ row }) => <RoutePreview from={row.from} to={row.to} />,
-};
-```
-
-## API response adapters
-
-If an API does not already return the standard paginated shape, adapt it inside `queryFunction`. The managed component deliberately does not understand endpoint-specific response formats. That keeps the UI contract stable while your SQL/API experiments change underneath it.
+The custom renderer receives the RHF `field`, the full RHF `form`, and the field config.
