@@ -37,7 +37,14 @@ export type Booking = {
 export type Flight = {
   flightId: number;
   routeNo: string;
-  status: 'Scheduled' | 'On Time' | 'Delayed' | 'Boarding' | 'Departed' | 'Arrived' | 'Cancelled';
+  status:
+    | "Scheduled"
+    | "On Time"
+    | "Delayed"
+    | "Boarding"
+    | "Departed"
+    | "Arrived"
+    | "Cancelled";
   scheduledDeparture: string;
   scheduledArrival: string;
   actualDeparture: string | null;
@@ -59,7 +66,7 @@ export type Route = {
 export type Seat = {
   airplaneCode: string;
   seatNo: string;
-  fareConditions: 'Economy' | 'Comfort' | 'Business';
+  fareConditions: "Economy" | "Comfort" | "Business";
 };
 
 export type Ticket = {
@@ -73,7 +80,7 @@ export type Ticket = {
 export type Segment = {
   ticketNo: string;
   flightId: number;
-  fareConditions: 'Economy' | 'Comfort' | 'Business';
+  fareConditions: "Economy" | "Comfort" | "Business";
   price: string;
 };
 
@@ -90,7 +97,7 @@ export type TimetableRow = {
   routeNo: string;
   departureAirport: string;
   arrivalAirport: string;
-  status: Flight['status'];
+  status: Flight["status"];
   airplaneCode: string;
   scheduledDeparture: string;
   scheduledDepartureLocal: string;
@@ -107,4 +114,9 @@ export type PaginatedResponse<T> = {
   page: number;
   size: number;
   hasMore: boolean;
+};
+
+export type Option = {
+  value: string;
+  label: string;
 };

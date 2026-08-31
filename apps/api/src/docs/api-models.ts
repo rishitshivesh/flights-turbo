@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CoordinatesDto {
   @ApiProperty({ example: 37.9063 })
@@ -29,36 +29,36 @@ export class DurationDto {
 }
 
 export class AirportDto {
-  @ApiProperty({ example: 'DME' })
+  @ApiProperty({ example: "DME" })
   airportCode!: string;
 
-  @ApiProperty({ example: 'Domodedovo International Airport' })
+  @ApiProperty({ example: "Domodedovo International Airport" })
   airportName!: string;
 
-  @ApiProperty({ example: 'Moscow' })
+  @ApiProperty({ example: "Moscow" })
   city!: string;
 
-  @ApiProperty({ example: 'Russia' })
+  @ApiProperty({ example: "Russia" })
   country!: string;
 
   @ApiProperty({ type: () => CoordinatesDto })
   coordinates!: CoordinatesDto;
 
-  @ApiProperty({ example: 'Europe/Moscow' })
+  @ApiProperty({ example: "Europe/Moscow" })
   timezone!: string;
 }
 
 export class RouteDto {
-  @ApiProperty({ example: 'PG0001' })
+  @ApiProperty({ example: "PG0001" })
   routeNo!: string;
 
-  @ApiProperty({ example: '773' })
+  @ApiProperty({ example: "773" })
   airplaneCode!: string;
 
   @ApiProperty({ type: [Number], example: [1, 3, 5] })
   daysOfWeek!: number[];
 
-  @ApiProperty({ example: '09:30:00' })
+  @ApiProperty({ example: "09:30:00" })
   scheduledTime!: string;
 
   @ApiProperty({ type: () => DurationDto })
@@ -91,6 +91,28 @@ export class AirportPageDto {
   hasMore!: boolean;
 }
 
+export class OptionDto {
+  @ApiProperty({ example: "DME" })
+  label!: string;
+
+  @ApiProperty({ example: "Domodedovo International Airport" })
+  value!: string;
+}
+
+export class OptionPageDto {
+  @ApiProperty({ type: [OptionDto] })
+  data!: OptionDto[];
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 20 })
+  size!: number;
+
+  @ApiProperty({ example: true })
+  hasMore!: boolean;
+}
+
 export class RoutePageDto {
   @ApiProperty({ type: [RouteDto] })
   data!: RouteDto[];
@@ -106,10 +128,10 @@ export class RoutePageDto {
 }
 
 export class GatewayRouteMetricDto {
-  @ApiProperty({ example: 'GET' })
+  @ApiProperty({ example: "GET" })
   method!: string;
 
-  @ApiProperty({ example: '/api/routes' })
+  @ApiProperty({ example: "/api/routes" })
   path!: string;
 
   @ApiProperty({ example: 1250 })
@@ -165,9 +187,9 @@ export class GatewayMetricsDto {
   @ApiProperty({ type: [GatewayRouteMetricDto] })
   routes!: GatewayRouteMetricDto[];
 
-  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  @ApiProperty({ type: "array", items: { type: "object" } })
   daily!: unknown[];
 
-  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  @ApiProperty({ type: "array", items: { type: "object" } })
   recent!: unknown[];
 }

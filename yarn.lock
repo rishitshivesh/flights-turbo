@@ -551,6 +551,7 @@ __metadata:
     react: "npm:19.2.8"
     react-day-picker: "npm:^10.0.1"
     react-dom: "npm:19.2.8"
+    react-hook-form: "npm:^7.62.0"
     react-resizable-panels: "npm:^4.12.3"
     recharts: "npm:3.8.0"
     rxjs: "npm:7.8.2"
@@ -5431,6 +5432,15 @@ __metadata:
   peerDependencies:
     react: ^19.2.8
   checksum: 10c0/41ba2247b76f687fcfe5bbc99f514d6b851d8c8041c2f5ded36ed05bd7fdc5208cacbac9de51e3e6633e77f96f44cec9f0d4a5a55184dba4e00738f224439134
+  languageName: node
+  linkType: hard
+
+"react-hook-form@npm:^7.62.0":
+  version: 7.87.0
+  resolution: "react-hook-form@npm:7.87.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17 || ^18 || ^19
+  checksum: 10c0/da095c160c216f0db19c8568b35faa27835f0faa56bd487c32dfafd3d6c45f0c5fcabd627f4d7edc03b0bf05273e93bed6959112b384f01b1ae124450e68ba33
   languageName: node
   linkType: hard
 

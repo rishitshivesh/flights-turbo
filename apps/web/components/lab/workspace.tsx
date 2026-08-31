@@ -2,50 +2,50 @@
 
 import {useMemo, useState} from 'react';
 import {
-  Activity,
-  BarChart3,
-  CircleDollarSign,
-  Clock3,
-  Gauge,
-  MapPin,
-  PlaneLanding,
-  PlaneTakeoff as Airplane,
-  TimerReset,
-  Users,
+    Activity,
+    BarChart3,
+    CircleDollarSign,
+    Clock3,
+    Gauge,
+    MapPin,
+    PlaneLanding,
+    PlaneTakeoff as Airplane,
+    TimerReset,
+    Users,
 } from 'lucide-react';
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+    Area,
+    AreaChart,
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Line,
+    LineChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
 } from 'recharts';
 
 import {Map} from '@/components/ui/map';
 import {FlightMultiRoute, FlightNetwork, FlightRange, FlightTracker} from '@/components/ui/flight';
-import {Airports} from '@/components/airports';
+import Airports from '@/components/airports';
 import {type DataColumn, DataTable, FilterBar, useLocalFilter} from './dataTable';
 import {BorderGlowCard, ExpandableInspector, GlassIcon, ShiftPreviewCard, SortableList} from './visualKit';
 import {getPagePlan, type LabPageId} from './pageCatalog';
 import {
-  buildSeatRows,
-  mockAircraft,
-  mockAirports,
-  mockBenchmarks,
-  mockBookings,
-  mockDailyTraffic,
-  mockDelayTrend,
-  mockFlights,
-  mockNetworkRoutes,
-  mockPlanNodes,
-  mockRevenueTrend,
-  mockRoutePerformance,
+    buildSeatRows,
+    mockAircraft,
+    mockAirports,
+    mockBenchmarks,
+    mockBookings,
+    mockDailyTraffic,
+    mockDelayTrend,
+    mockFlights,
+    mockNetworkRoutes,
+    mockPlanNodes,
+    mockRevenueTrend,
+    mockRoutePerformance,
 } from './mockData';
 
 function Pill({children}: { children: React.ReactNode }) {
