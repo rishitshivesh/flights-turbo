@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google';
 import { AppShell } from '@/components/lab/appShell';
 import { cn } from '@/lib/utils';
 import './globals.css';
+import { ReactQueryProvider } from '@/lib/react-query';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={cn('font-sans', inter.variable)}>
       <body>
-        <AppShell>{children}</AppShell>
+        <ReactQueryProvider>
+          <AppShell>{children}</AppShell>
+        </ReactQueryProvider>
       </body>
     </html>
   );
